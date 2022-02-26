@@ -49,17 +49,23 @@ draw.recmap(sylatr, points=1, lines=1, pcol="black", lcol="red",
             projection= "mercator", border= "gray")
 
 
-#Bonus : pour "recarder" les cartes aux bonnes latitudes et longitudes
-#vous pouvez utiliser les fonctions ci dessous, pour connaitre les 
-#latitudes et longitudes min et max de votre jeu de données, 
-#et garder les mêmes dimensions pour toutes les cartes
-#il faut ensuite les modifier dans la formule ci-dessus dans le paramètre "bbox" :
-#avec bbox=c(min lon, max long, min lat, max lat)
 
-min(data_bird$lat)
-max(data_bird$lat)
-min(data_bird$lon)
-max(data_bird$lon)
+
+#Bonus : pour "recadrer" automatiquement les cartes aux bonnes latitudes et longitudes
+#faire tourner ces lignes, en remplaçant l'espèce à la première ligne et dans la formule
+coords<-sylatr
+
+minlat<-min(coords$lat)-2
+maxlat<-max(coords$lat)+2
+minlon<-min(coords$lon)-2
+maxlon<-max(coords$lon)+2
+draw.recmap(sylatr, points=1, lines=1, pcol="black", lcol="red",
+            mercator=TRUE,   projection= "mercator", border= "gray",
+            bbox=c(minlon, maxlon, minlat, maxlat))
+
+
+
+
 
 
  
