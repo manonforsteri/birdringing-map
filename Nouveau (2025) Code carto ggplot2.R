@@ -1,57 +1,67 @@
-# 0. Installation des packages nécessaires (à lancer une seule fois)
-install.packages(c("readxl", "tidyverse", "rnaturalearth", "rnaturalearthdata"))
+# 0. Installation des packages nécessaires (à lancer uniquement la première fois)
+install.packages(c("readxl", "tidyverse", "rnaturalearth", "rnaturalearthdata", "sf"))
 
 # 1. Chargement des librairies
 library(readxl)         # Pour ouvrir un fichier Excel
 library(tidyverse)      # Comprend ggplot2, dplyr, et tout le nécessaire
 library(rnaturalearth)  # Pour le fond de carte
+library(sf)             # Pour gérer les coordonnées géographiques
 
 # 2. Importation du fichier de données (tel qu'exporté par le CRBPO)
-data_bird <- read_excel("GHISLAIN, Manon 2022030409h11h12.xls", sheet = 1)
+data_brute <- read_excel("GHISLAIN, Manon 2022030409h11h12.xls", sheet = 1)
 
-# 3. Préparation des données 
-# On s'assure que les coordonnées sont bien des nombres
-data_bird$LAT <- as.numeric(data_bird$LAT)
-data_bird$LON <- as.numeric(data_bird$LON)
+# 3. Préparation et filtre des données
+# Choix de l'espèce à cartographier (Code EURING en 6 lettres)
+espece_choisie <- "ACRSCH"
 
-# On sélectionne l'espèce et on filtre les oiseaux vus au moins 2 fois
-# Remplacer "ACRSCH" avec l'espèce qui vous intéresse
-data_carte <- data_bird %>%
-  filter(ESPECE == "ACRSCH") %>%           # 1. On ne garde que l'espèce choisie
-  group_by(BAGUE) %>%                      # 2. On groupe par n° de bague
-  filter(n() > 1) %>%                      # 3. On garde ceux qui ont plus d'une ligne
-  arrange(BAGUE, DATE) %>%                 # 4. On trie par date pour que le trait soit dans le bon sens
+data_carte <- data_brute %>%
+  # On s'assure que les coordonnées sont bien numériques
+  mutate(LAT = as.numeric(LAT), 
+         LON = as.numeric(LON)) %>%
+  # On filtre l'espèce
+  filter(ESPECE == espece_choisie) %>%
+  # On ne garde que les oiseaux vus au moins 2 fois
+  group_by(BAGUE) %>%
+  filter(n() > 1) %>%
+  # On trie par date pour tracer les traits dans le bon ordre
+  arrange(BAGUE, DATE) %>%
   ungroup()
 
-# 4. Calcul automatique des limites de la carte 
-limites <- coord_sf(
-  xlim = range(data_carte$LON) + c(-2, 2), # Marge de 2 degrés longitude
-  ylim = range(data_carte$LAT) + c(-2, 2), # Marge de 2 degrés latitude
+# 4. Création de la carte
+
+# Téléchargement du fond de carte (pays)
+monde <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Calcul automatique des limites de la carte (avec une marge de 2 degrés autour des points)
+limites_carte <- coord_sf(
+  xlim = range(data_carte$LON, na.rm = TRUE) + c(-2, 2),
+  ylim = range(data_carte$LAT, na.rm = TRUE) + c(-2, 2),
   expand = FALSE
 )
 
-# 5. Création de la carte avec ggplot2
-# On récupère le fond de carte mondial
-monde <- ne_countries(scale = "medium", returnclass = "sf")
-
+# Le graphique
 ggplot(data = data_carte) +
-  # --- Couche 1 : Le fond de carte ---
-  geom_sf(data = monde, fill = "antiquewhite", color = "grey70") + #couleur du sol et des côtes
+  # Le fond de carte (Terre et frontières)
+  geom_sf(data = monde, fill = "antiquewhite", color = "grey70") +  #Couleur du sol et des côtes
   
-  # --- Couche 2 : Les trajets ---
-  # group = BAGUE dit à R : "Relie les points qui ont le même numéro de bague"
+  # Les trajets (Lignes reliant les points d'une même bague)
   geom_path(aes(x = LON, y = LAT, group = BAGUE), 
-            color = "darkblue", alpha = 0.6, linewidth = 0.8) +  #couleur des traits
+            color = "darkblue", alpha = 0.5, linewidth = 0.8) +
   
-  # --- Couche 3 : Les points ---
-  # On peut colorier selon l'action (Baguage, Contrôle ou Reprise)
-  geom_point(aes(x = LON, y = LAT, color = ACTION), size = 2) +
+  # Les points (Colorés selon l'Action : B, C ou R)
+  geom_point(aes(x = LON, y = LAT, color = ACTION), size = 3) +
   
-  # --- Mise en forme ---
-  limites +                            # Applique les limites de carte calculées plus haut
-  theme_bw() +                         
-  theme(panel.background = element_rect(fill = "aliceblue")) + # Couleur de l'eau
-  labs(title = paste("Mouvements de", unique(data_carte$ESPECE)),
+  # Définition des couleurs des ACTION
+  scale_color_manual(values = c("B" = "blue",    # Baguage en Bleu
+                                "C" = "green4",  # Contrôle en Vert
+                                "R" = "red")) +  # Reprise en Rouge
+  
+  # Mise en forme
+  limites_carte +
+  theme_bw() +
+  theme(panel.background = element_rect(fill = "aliceblue"), # Couleur de l'eau
+        legend.position = "right") +
+  labs(title = paste("Mouvements de", espece_choisie),
        subtitle = "Données de Baguage-Contrôles",
        x = "Longitude", y = "Latitude", 
-       color = "Action")
+       color = "Type d'observation")
