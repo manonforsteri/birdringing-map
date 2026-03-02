@@ -22,7 +22,10 @@ data_carte <- data_brute %>%
   filter(ESPECE == espece_choisie) %>%
   # On ne garde que les oiseaux vus au moins 2 fois
   group_by(BAGUE) %>%
-  filter(n() > 1) %>%
+   
+  # CORRECTION ICI : on vérifie qu'il y a au moins 2 lieux différents
+  filter(n_distinct(paste(LAT, LON)) > 1) %>%
+
   # On trie par date pour tracer les traits dans le bon ordre
   arrange(BAGUE, DATE) %>%
   ungroup()
@@ -65,3 +68,4 @@ ggplot(data = data_carte) +
        subtitle = "Données de Baguage-Contrôles",
        x = "Longitude", y = "Latitude", 
        color = "Type d'observation")
+
